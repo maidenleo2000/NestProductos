@@ -5,8 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { PaginationDto } from 'src/common/dtos/pagination.dto';
-import { validate as uuid} from 'uuid';
+import { validate as uuid } from 'uuid';
 import { isUUID } from 'class-validator';
+import { ProductImage } from './entities';
 
 @Injectable()
 export class ProductsService {
@@ -15,12 +16,17 @@ export class ProductsService {
 
   constructor(
     @InjectRepository(Product) //Aca se inyecta la entidad
-    private readonly productsRepository: Repository<Product>
+    private readonly productsRepository: Repository<Product>,
+
+    @InjectRepository(ProductImage)
+    private readonly productsImageRepository: Repository<ProductImage>
   ) { }
 
   async create(createProductDto: CreateProductDto) {
 
     try {
+
+      const {images = [], ...productDetails} = createProductDto;
 
       //TODO Toda esta validacion ahora la hago en la entity
       // if (!createProductDto.slug){
@@ -29,13 +35,19 @@ export class ProductsService {
       //   createProductDto.slug = createProductDto.slug.toLowerCase().replaceAll(' ','_').replaceAll("'",'');
       // }
 
-      const product = this.productsRepository.create(createProductDto); //Crea la instancia del producto.
+      const product = this.productsRepository.create({
+        ...productDetails,
+        images: images.map(image => this.productsImageRepository.create({url: image})), //se crean las imagenes
+
+      }); //Crea la instancia del producto.
+
       await this.productsRepository.save(product); //Aca se graba la instancia.
 
-      return product;
+      // return product;
+      return {...product, images};
 
     } catch (error) {
-      
+
       this.handleDBExceptions(error);
     }
 
@@ -47,14 +59,17 @@ export class ProductsService {
   findAll(paginationDto: PaginationDto) {
     // return `This action returns all products`;
 
-    
-    const {limit = 10, offset = 0} = paginationDto;
+
+    const { limit = 10, offset = 0 } = paginationDto;
 
 
     return this.productsRepository.find({
       take: limit,
-      skip: offset
-      //TODO relaciones
+      skip: offset,
+      //relaciones
+      relations: {
+        images: true,
+      }
     });
   }
 
@@ -63,9 +78,9 @@ export class ProductsService {
     // console.log(term)
     let product: Product;
 
-    if(isUUID (term)){
-      product = await this.productsRepository.findOneBy({id: term});
-    }else {
+    if (isUUID(term)) {
+      product = await this.productsRepository.findOneBy({ id: term });
+    } else {
       //SIN USAR QUERY BUILDER
       // product = await this.productsRepository.findOneBy({slug: term});
 
@@ -73,9 +88,9 @@ export class ProductsService {
       const queryBuilder = this.productsRepository.createQueryBuilder();
       product = await queryBuilder
         .where('UPPER(title) =:title or slug =:slug', {
-        title: term.toUpperCase(),
-        slug: term.toLowerCase()    
-      }).getOne();
+          title: term.toUpperCase(),
+          slug: term.toLowerCase()
+        }).getOne();
     }
 
 
@@ -95,16 +110,17 @@ export class ProductsService {
 
     const product = await this.productsRepository.preload({
       //Aca se le dice a TypeORM que busque un producto por ID y luego coloque todas las propiedades del DTO (con ...updateProductDto)
-      id:id,
+      id: id,
       ...updateProductDto,
+      images: [],
     });
-    if(!product) throw new NotFoundException(`Product with id ${id} not found`);
+    if (!product) throw new NotFoundException(`Product with id ${id} not found`);
 
 
     try {
       await this.productsRepository.save(product);
       return product;
-      
+
     } catch (error) {
       this.handleDBExceptions(error);
     }
@@ -124,7 +140,7 @@ export class ProductsService {
   }
 
 
-  private handleDBExceptions(error: any){
+  private handleDBExceptions(error: any) {
     if (error.code === '23505') {
       throw new BadRequestException(error.detail);
     }

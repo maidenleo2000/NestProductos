@@ -1,6 +1,7 @@
 //Entity es una clase que representa una tabla en la base de datos
 
-import { BeforeInsert, BeforeUpdate, Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { ProductImage } from "./product-image.entity";
 
 @Entity()
 export class Product {
@@ -38,6 +39,15 @@ export class Product {
     tags: string[];
 
     //images
+    //Esta es la relacion entre Product y ProductImage. Un producto puede tener muchas imagenes
+    @OneToMany(
+        () => ProductImage, //va a regresar un ProductImage
+        (productImage) => productImage.product,
+
+        //Eager es para que se carguen las imagenes y cascade es para que se actualicen automaticamente
+        { cascade: true, eager: true }
+    )
+    images?: ProductImage[];
 
 
 
