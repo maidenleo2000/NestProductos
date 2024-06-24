@@ -56,14 +56,15 @@ export class ProductsService {
   }
 
   //TODO Paginar
-  findAll(paginationDto: PaginationDto) {
+  
+  async findAll(paginationDto: PaginationDto) {
     // return `This action returns all products`;
 
 
     const { limit = 10, offset = 0 } = paginationDto;
 
 
-    return this.productsRepository.find({
+    const products = await this.productsRepository.find({
       take: limit,
       skip: offset,
       //relaciones
@@ -71,6 +72,11 @@ export class ProductsService {
         images: true,
       }
     });
+
+    return products.map(product => ({ //de esta forma aplano la informacion de imagenes para que no se vea como un objeto sino como un array
+      ...product,
+      images: product.images.map(image => image.url)
+    }))
   }
 
   async findOne(term: string) {
@@ -85,12 +91,14 @@ export class ProductsService {
       // product = await this.productsRepository.findOneBy({slug: term});
 
       //USANDO QUERY BUILDER
-      const queryBuilder = this.productsRepository.createQueryBuilder();
+      const queryBuilder = this.productsRepository.createQueryBuilder('prod');
       product = await queryBuilder
         .where('UPPER(title) =:title or slug =:slug', {
           title: term.toUpperCase(),
           slug: term.toLowerCase()
-        }).getOne();
+        })
+        .leftJoinAndSelect('prod.images', 'prodImages')
+        .getOne();
     }
 
 
@@ -104,6 +112,18 @@ export class ProductsService {
     return product;
 
   }
+
+
+  async findOnePlain(term: string) {
+    const { images = [], ...product } = await this.findOne(term);
+    return {
+      ...product,
+      images: images.map(image => image.url)
+    }
+  }
+
+
+
 
   async update(id: string, updateProductDto: UpdateProductDto) {
     // return `This action updates a #${id} product`;
