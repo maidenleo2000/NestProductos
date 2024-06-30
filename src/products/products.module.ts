@@ -11,5 +11,9 @@ import { Product, ProductImage } from './entities';
   imports: [
     TypeOrmModule.forFeature([Product, ProductImage]), //Aca van declaradas las entitys
   ],
+  exports: [
+    TypeOrmModule,
+    ProductsService
+  ]
 })
 export class ProductsModule {}

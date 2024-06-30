@@ -3,7 +3,7 @@ import { Product } from "./product.entity";
 
 
 
-@Entity()
+@Entity({name: 'product_images'})
 export class ProductImage {
 
     @PrimaryGeneratedColumn()
@@ -21,7 +21,7 @@ export class ProductImage {
 
         //para que me regrese el product
         (product) => product.images,
-        {}
+        { onDelete: 'CASCADE' } //cuando se elimine un product, se elimina la imagen
 
     )
     product: Product;
